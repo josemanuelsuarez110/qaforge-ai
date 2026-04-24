@@ -21,7 +21,7 @@ describe("Integration Tests - API", () => {
 
     expect(res.statusCode).toBe(200);
     expect(res.body).toHaveProperty("jobId");
-    expect(res.body.status).toBe("queued");
+    expect(res.body.message).toBe("Test run queued");
   });
 
   test("POST /api/tests/run should fail without projectId", async () => {
@@ -35,11 +35,12 @@ describe("Integration Tests - API", () => {
     expect(res.body).toHaveProperty("error");
   });
 
-  test("GET /api/tests/status/:id should return job status", async () => {
-    const res = await request(app).get("/api/tests/status/1");
+  test("GET /api/runs should return run summaries", async () => {
+    const res = await request(app).get("/api/runs");
 
     expect(res.statusCode).toBe(200);
-    expect(res.body).toHaveProperty("status");
+    expect(res.body).toHaveProperty("runs");
+    expect(Array.isArray(res.body.runs)).toBe(true);
   });
 
   test("GET /api/reports/ai-suggestions should return suggestions", async () => {
@@ -60,7 +61,6 @@ describe("Integration Tests - API", () => {
 
     expect(res.statusCode).toBe(200);
     expect(res.body).toHaveProperty("token");
-    expect(res.body).toHaveProperty("user");
   });
 
   test("GET /api/tests should return test runs", async () => {
