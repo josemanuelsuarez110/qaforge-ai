@@ -1,0 +1,60 @@
+name: CD
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.9'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r backend/requirements.txt
+
+    - name: Run backend tests
+      env:
+        DATABASE_URL: postgresql://postgres:password@localhost:5432/qaforge_test
+      run: |
+        cd backend
+        pytest
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '18'
+
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        npm install
+
+    - name: Run frontend tests
+      run: |
+        cd frontend
+        npm test
+
+    - name: Build and deploy backend
+      run: |
+        cd backend
+        docker-compose build backend
+        docker-compose push backend
+
+    - name: Build and deploy frontend
+      run: |
+        cd frontend
+        docker-compose build frontend
+        docker-compose push frontend
+
+    - name: Deploy to production
+      run: |
+        docker-compose -f docker-compose.prod.yml up -d
