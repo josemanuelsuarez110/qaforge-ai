@@ -385,3 +385,8 @@ storybook-static/
 *.secret
 *.secrets
 private-key*
+venv/
+.env
+__pycache__/
+*.pyc
+.pytest_cache/

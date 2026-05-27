@@ -1,0 +1,107 @@
+name: Production Checks
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Run daily at midnight
+  workflow_dispatch: # Allow manual triggering
+
+env:
+  NODE_VERSION: 18.x
+  PYTHON_VERSION: 3.9
+
+jobs:
+  health-checks:
+    name: Health Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check production health
+        run: |
+          curl -f https://qaforge-ai.com/health || exit 1
+          curl -f https://qaforge-ai.com/api/v1/test-runs/health || exit 1
+
+      - name: Check API endpoints
+        run: |
+          curl -f https://qaforge-ai.com/api/v1/auth/health || exit 1
+          curl -f https://qaforge-ai.com/api/v1/users/health || exit 1
+          curl -f https://qaforge-ai.com/api/v1/projects/health || exit 1
+          curl -f https://qaforge-ai.com/api/v1/test-runs/health || exit 1
+          curl -f https://qaforge-ai.com/api/v1/reports/health || exit 1
+
+  performance-metrics:
+    name: Performance Metrics
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check response times
+        run: |
+          # Use a tool like k6 or wrk to test performance
+          echo "Running performance tests..."
+
+      - name: Check database performance
+        run: |
+          # Add database performance checks here
+          echo "Checking database performance..."
+
+  security-scans:
+    name: Security Scans
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run security scans
+        run: |
+          # Add security scanning commands here
+          echo "Running security scans..."
+
+      - name: Check for vulnerabilities
+        run: |
+          # Add vulnerability checking commands here
+          echo "Checking for vulnerabilities..."
+
+  database-backup:
+    name: Database Backup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create database backup
+        run: |
+          # Add database backup commands here
+          echo "Creating database backup..."
+
+  log-analysis:
+    name: Log Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Analyze logs
+        run: |
+          # Add log analysis commands here
+          echo "Analyzing logs..."
+
+  notification:
+    name: Notification
+    runs-on: ubuntu-latest
+    needs: [health-checks, performance-metrics, security-scans, database-backup, log-analysis]
+    if: always()
+    steps:
+      - name: Notify team
+        uses: slackapi/slack-github-action@v1.23.0
+        with:
+          payload: |
+            {
+              "text": "Production checks completed!",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": ":white_check_mark: Production checks completed!"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "View the application at: https://qaforge-ai.com"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK

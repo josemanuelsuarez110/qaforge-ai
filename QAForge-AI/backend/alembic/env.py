@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), '..'
 from app.core.config import settings
 from app.core.database import Base
 # Import all models here so they are registered with Base.metadata
-from app.models import user, project, test_run, report, ai_generation, webhook
+from app.models import user, project, test_run, report, ai_generation, webhook, supabase_models
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -28,6 +28,9 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here
 # for 'autogenerate' support
+from database import Base
+from models.user import User
+
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
@@ -36,7 +39,7 @@ target_metadata = Base.metadata
 # ... etc.
 
 def get_url():
-    return str(settings.DATABASE_URL).replace("postgresql://", "postgresql+asyncpg://")
+    return str(settings.sqlalchemy_database_url).replace("postgresql://", "postgresql+asyncpg://").replace("sslmode=require", "ssl=require")
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.

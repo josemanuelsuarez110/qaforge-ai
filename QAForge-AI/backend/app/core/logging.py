@@ -1,22 +1,43 @@
 import logging
-from logging.handlers import RotatingFileHandler
+import sys
+from typing import Optional
+from pydantic import BaseSettings
+from app.core.config import settings
 
-def setup_audit_logging():
-    audit_logger = logging.getLogger('audit')
-    audit_logger.setLevel(logging.INFO)
+class LoggingSettings(BaseSettings):
+    LOG_LEVEL: str = "INFO"
+    LOG_FORMAT: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    LOG_FILE: Optional[str] = None
 
-    handler = RotatingFileHandler('audit.log', maxBytes=1024*1024, backupCount=5)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    handler.setFormatter(formatter)
+    class Config:
+        env_prefix = "LOG_"
 
-    audit_logger.addHandler(handler)
-    return audit_logger
-
-audit_logger = setup_audit_logging()
+logging_settings = LoggingSettings()
 
 def setup_logging():
+    """Configure application logging"""
+    log_level = getattr(logging, logging_settings.LOG_LEVEL.upper(), logging.INFO)
+
     logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        level=log_level,
+        format=logging_settings.LOG_FORMAT,
+        handlers=[
+            logging.StreamHandler(sys.stdout),
+        ]
     )
-    return logging.getLogger(__name__)
+
+    if logging_settings.LOG_FILE:
+        file_handler = logging.FileHandler(logging_settings.LOG_FILE)
+        file_handler.setFormatter(logging.Formatter(logging_settings.LOG_FORMAT))
+        logging.getLogger().addHandler(file_handler)
+
+    # Suppress logs from specific libraries
+    logging.getLogger("uvicorn").setLevel(logging.WARNING)
+    logging.getLogger("uvicorn.error").setLevel(logging.ERROR)
+    logging.getLogger("sqlalchemy").setLevel(logging.WARNING)
+
+    logger = logging.getLogger(__name__)
+    logger.info("Logging configured successfully")
+    return logger
+
+logger = setup_logging()

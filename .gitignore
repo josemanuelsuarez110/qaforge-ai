@@ -1,0 +1,25 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+.env
+
+# Node
+node_modules/
+.next/
+dist/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+
+# VSCode
+.vscode/
+
+# Alembic cache
+.pytest_cache/
+
+# Build
+build/

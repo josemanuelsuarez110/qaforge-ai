@@ -1,60 +1,180 @@
-name: CD
+name: CD Pipeline
 
 on:
-  push:
-    branches: [ main ]
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    branches: [main]
+    types:
+      - completed
+
+env:
+  NODE_VERSION: 18.x
+  PYTHON_VERSION: 3.9
 
 jobs:
-  deploy:
+  deploy-staging:
+    name: Deploy to Staging
     runs-on: ubuntu-latest
-
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    environment:
+      name: staging
+      url: https://staging.qaforge-ai.com
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
-    - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: '3.9'
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r backend/requirements.txt
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm install
 
-    - name: Run backend tests
-      env:
-        DATABASE_URL: postgresql://postgres:password@localhost:5432/qaforge_test
-      run: |
-        cd backend
-        pytest
+      - name: Build frontend
+        working-directory: ./frontend
+        run: npm run build
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v2
-      with:
-        node-version: '18'
+      - name: Deploy frontend to Vercel (Staging)
+        uses: amondnet/vercel-action@v20
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: ./frontend
+          vercel-args: '--prod'
+          alias-domains: staging.qaforge-ai.com
 
-    - name: Install frontend dependencies
-      run: |
-        cd frontend
-        npm install
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
 
-    - name: Run frontend tests
-      run: |
-        cd frontend
-        npm test
+      - name: Install Python dependencies
+        working-directory: ./backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-    - name: Build and deploy backend
-      run: |
-        cd backend
-        docker-compose build backend
-        docker-compose push backend
+      - name: Build backend
+        working-directory: ./backend
+        run: python -m compileall .
 
-    - name: Build and deploy frontend
-      run: |
-        cd frontend
-        docker-compose build frontend
-        docker-compose push frontend
+      - name: Deploy backend to Railway (Staging)
+        uses: railwayapp/action-deploy@v2
+        with:
+          service: ${{ secrets.RAILWAY_STAGING_SERVICE_ID }}
+          token: ${{ secrets.RAILWAY_TOKEN }}
+          environment: staging
 
-    - name: Deploy to production
-      run: |
-        docker-compose -f docker-compose.prod.yml up -d
+  production-checks:
+    name: Production Checks
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    steps:
+      - name: Check staging health
+        run: |
+          curl -f https://staging.qaforge-ai.com/health || exit 1
+          curl -f https://staging.qaforge-ai.com/api/v1/test-runs/health || exit 1
+
+      - name: Run smoke tests
+        run: |
+          # Add your smoke test commands here
+          echo "Running smoke tests..."
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: production-checks
+    environment:
+      name: production
+      url: https://qaforge-ai.com
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm install
+
+      - name: Build frontend
+        working-directory: ./frontend
+        run: npm run build
+
+      - name: Deploy frontend to Vercel (Production)
+        uses: amondnet/vercel-action@v20
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: ./frontend
+          vercel-args: '--prod'
+          alias-domains: qaforge-ai.com
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Python dependencies
+        working-directory: ./backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build backend
+        working-directory: ./backend
+        run: python -m compileall .
+
+      - name: Deploy backend to Railway (Production)
+        uses: railwayapp/action-deploy@v2
+        with:
+          service: ${{ secrets.RAILWAY_PRODUCTION_SERVICE_ID }}
+          token: ${{ secrets.RAILWAY_TOKEN }}
+          environment: production
+
+  post-deployment:
+    name: Post-Deployment Tasks
+    runs-on: ubuntu-latest
+    needs: deploy-production
+    steps:
+      - name: Notify team
+        uses: slackapi/slack-github-action@v1.23.0
+        with:
+          payload: |
+            {
+              "text": "Production deployment completed successfully!",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": ":tada: Production deployment completed successfully! :tada:"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "View the application at: https://qaforge-ai.com"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
