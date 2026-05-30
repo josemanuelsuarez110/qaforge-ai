@@ -71,19 +71,19 @@ export default function DashboardPage() {
             <div className="space-y-4">
               <div className="flex items-center">
                 <div className="ml-4 space-y-1">
-                  <p className="text-sm font-medium leading-none">Project "E-commerce" created</p>
+                  <p className="text-sm font-medium leading-none">Project &quot;E-commerce&quot; created</p>
                   <p className="text-sm text-muted-foreground">2 hours ago</p>
                 </div>
               </div>
               <div className="flex items-center">
                 <div className="ml-4 space-y-1">
-                  <p className="text-sm font-medium leading-none">Test run completed for "Mobile App"</p>
+                  <p className="text-sm font-medium leading-none">Test run completed for &quot;Mobile App&quot;</p>
                   <p className="text-sm text-muted-foreground">1 day ago</p>
                 </div>
               </div>
               <div className="flex items-center">
                 <div className="ml-4 space-y-1">
-                  <p className="text-sm font-medium leading-none">Report generated for "API Integration"</p>
+                  <p className="text-sm font-medium leading-none">Report generated for &quot;API Integration&quot;</p>
                   <p className="text-sm text-muted-foreground">3 days ago</p>
                 </div>
               </div>
